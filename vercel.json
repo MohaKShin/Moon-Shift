@@ -1,6 +1,6 @@
 {
   "installCommand": "env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm install",
-  "buildCommand": "npm run build",
+  "buildCommand": "env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm run build",
   "outputDirectory": "dist",
   "framework": "vite"
 }
