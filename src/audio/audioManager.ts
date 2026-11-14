@@ -1,8 +1,3 @@
-/**
- * Centralised audio. Everything starts only after unlock() is called from a user click.
- * Music: tries /audio/<file>.mp3 first; if the file is missing or can't be decoded,
- * it falls back to original music synthesised live with the Web Audio API.
- */
 export type MusicId = 'menu' | 'gameplay' | 'emergency' | 'victory' | 'failure'
 
 import { SFX_BANK, type SfxId } from './sfxBank'
