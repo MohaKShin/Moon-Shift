@@ -38,7 +38,7 @@ export function Landing({ onStart }: { onStart: () => void }) {
       </section>
 
       <footer className="relative z-10 p-4 text-center text-xs text-white/70 sm:text-sm">
-        Made for the NASA Space Apps Challenge 2026. Not an official NASA product. Solar event data from NASA DONKI.
+        Made for the NASA Space Apps Challenge 2026. Not an official NASA product. Solar event data from NASA DONKI. By Galaxy Spice.
       </footer>
     </main>
   )
