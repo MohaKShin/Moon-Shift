@@ -4,7 +4,9 @@
  * it falls back to original music synthesised live with the Web Audio API.
  */
 export type MusicId = 'menu' | 'gameplay' | 'emergency' | 'victory' | 'failure'
-export type SfxId = 'click' | 'alert' | 'good' | 'bad' | 'success' | 'failed' | 'day'
+
+import { SFX_BANK, type SfxId } from './sfxBank'
+export type { SfxId }
 
 export interface AudioSettings {
   music: number
@@ -20,10 +22,13 @@ const MUSIC_FILES: Record<MusicId, string> = {
   victory: 'victory.mp3',
   failure: 'mission-failed.mp3',
 }
-const SFX_FILES: Partial<Record<SfxId, string>> = { click: 'button-click.mp3', alert: 'alert.mp3' }
+const SFX_FILES: Partial<Record<SfxId, string>> = { click: 'button-click.mp3', notify: 'alert.mp3' }
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12)
-const FADE = 2.2
+const fadeFor = (from: MusicId | undefined, to: MusicId) =>
+  to === 'emergency' ? 1.4 : from === 'emergency' ? 2.6 : to === 'victory' ? 3.5 : to === 'failure' ? 2.4 : 3
+const curve = (up: boolean, scale = 1) =>
+  Float32Array.from({ length: 48 }, (_, i) => (up ? Math.sin((i / 47) * Math.PI / 2) : Math.cos((i / 47) * Math.PI / 2)) * scale)
 
 interface Scene {
   gain: GainNode
@@ -36,6 +41,10 @@ class AudioManager {
   private master!: GainNode
   private musicBus!: GainNode
   private sfxBus!: GainNode
+  private sfxIn!: GainNode
+  private duckAmt = 1
+  private lastSfx = new Map<SfxId, number>()
+  private stingerUntil = 0
   private reverb!: ConvolverNode
   private current: (Scene & { id: MusicId }) | null = null
   private wanted: MusicId | null = null
@@ -68,7 +77,16 @@ class AudioManager {
         this.musicBus = this.ctx.createGain()
         this.sfxBus = this.ctx.createGain()
         this.musicBus.connect(this.master)
-        this.sfxBus.connect(this.master)
+        const comp = this.ctx.createDynamicsCompressor()
+        comp.threshold.value = -20; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.25
+        this.sfxBus.connect(comp)
+        comp.connect(this.master)
+        this.sfxIn = this.ctx.createGain()
+        this.sfxIn.connect(this.sfxBus)
+        const sv = this.makeReverb(this.ctx)
+        const svSend = this.ctx.createGain()
+        svSend.gain.value = 0.22
+        this.sfxIn.connect(svSend); svSend.connect(sv); sv.connect(this.sfxBus)
         this.master.connect(this.ctx.destination)
         this.reverb = this.makeReverb(this.ctx)
         const wet = this.ctx.createGain()
@@ -94,7 +112,7 @@ class AudioManager {
     if (!this.ctx) return
     const t = this.ctx.currentTime
     this.master.gain.setTargetAtTime(this.state.muted ? 0 : 1, t, 0.05)
-    this.musicBus.gain.setTargetAtTime(this.state.music * 0.9, t, 0.05)
+    this.musicBus.gain.setTargetAtTime(this.state.music * 0.9 * this.duckAmt, t, 0.05)
     this.sfxBus.gain.setTargetAtTime(this.state.sfx, t, 0.05)
   }
 
@@ -136,14 +154,14 @@ class AudioManager {
     }
 
     const t = ctx.currentTime
-    gain.gain.setValueAtTime(0, t)
-    gain.gain.linearRampToValueAtTime(1, t + FADE)
-
     const old = this.current
+    const FADE = fadeFor(old?.id, id)
+    gain.gain.setValueCurveAtTime(curve(true), t, FADE)
     if (old) {
+      const cur = Math.max(0.0001, old.gain.gain.value)
       old.gain.gain.cancelScheduledValues(t)
-      old.gain.gain.setValueAtTime(old.gain.gain.value, t)
-      old.gain.gain.linearRampToValueAtTime(0, t + FADE)
+      old.gain.gain.setValueAtTime(cur, t)
+      old.gain.gain.setValueCurveAtTime(curve(false, cur), t, FADE)
       window.setTimeout(() => { old.stop(); old.gain.disconnect() }, FADE * 1000 + 200)
     }
     this.current = { id, gain, stop }
@@ -163,9 +181,24 @@ class AudioManager {
   }
 
   // ---- sfx ----
+  /** Briefly lowers the music so a cinematic cue can breathe. */
+  private duck(secs: number) {
+    if (!this.ctx) return
+    this.duckAmt = 0.5
+    this.applyVolumes()
+    window.setTimeout(() => { this.duckAmt = 1; this.applyVolumes() }, secs * 1000)
+  }
+
   async sfx(id: SfxId) {
     const ctx = this.ctx
     if (!ctx || !this.state.unlocked || this.state.muted) return
+    const now = ctx.currentTime
+    const last = this.lastSfx.get(id) ?? -1
+    if (now - last < 0.07) return
+    const def = SFX_BANK[id]
+    // never stack two big cinematic cues on top of each other
+    if (def.pri === 2 && now < this.stingerUntil && id !== 'success' && id !== 'failed') return
+    this.lastSfx.set(id, now)
     try {
       const file = SFX_FILES[id]
       if (file) {
@@ -173,12 +206,13 @@ class AudioManager {
         if (buf) {
           const src = ctx.createBufferSource()
           src.buffer = buf
-          src.connect(this.sfxBus)
+          src.connect(this.sfxIn)
           src.start()
           return
         }
       }
-      SFX_SYNTH[id](ctx, this.sfxBus)
+      if (def.pri === 2) { this.stingerUntil = now + def.dur; this.duck(Math.min(def.dur, 2.2)) }
+      def.play(ctx, this.sfxIn)
     } catch { /* ignore */ }
   }
 
@@ -397,30 +431,5 @@ const failure: Builder = (ctx, out) => {
 }
 
 const SYNTH: Record<MusicId, Builder> = { menu, gameplay, emergency, victory, failure }
-
-// ---------- synthesised sound effects ----------
-function tone(ctx: AudioContext, out: AudioNode, f: number, start: number, dur: number, type: OscillatorType, level: number, slideTo?: number) {
-  const t = ctx.currentTime + start
-  const o = ctx.createOscillator()
-  const g = ctx.createGain()
-  o.type = type
-  o.frequency.setValueAtTime(f, t)
-  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur)
-  g.gain.setValueAtTime(0.0001, t)
-  g.gain.exponentialRampToValueAtTime(level, t + 0.01)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-  o.connect(g); g.connect(out)
-  o.start(t); o.stop(t + dur + 0.05)
-}
-
-const SFX_SYNTH: Record<SfxId, (ctx: AudioContext, out: AudioNode) => void> = {
-  click: (c, o) => tone(c, o, 720, 0, 0.09, 'sine', 0.25, 520),
-  alert: (c, o) => { [0, 0.22, 0.44].forEach((d) => tone(c, o, 880, d, 0.14, 'square', 0.1)) },
-  good: (c, o) => { [523, 659, 784].forEach((f, i) => tone(c, o, f, i * 0.09, 0.3, 'triangle', 0.2)) },
-  bad: (c, o) => tone(c, o, 190, 0, 0.4, 'sawtooth', 0.14, 90),
-  day: (c, o) => { tone(c, o, 392, 0, 0.35, 'sine', 0.2); tone(c, o, 523, 0.15, 0.5, 'sine', 0.2) },
-  success: (c, o) => { [523, 659, 784, 1047].forEach((f, i) => tone(c, o, f, i * 0.14, 0.8, 'triangle', 0.18)) },
-  failed: (c, o) => { [330, 262, 196].forEach((f, i) => tone(c, o, f, i * 0.25, 0.7, 'sine', 0.2)) },
-}
 
 export const audio = new AudioManager()

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { audio, type MusicId } from './audio/audioManager'
+import { ACTION, STINGER, type SfxId } from './audio/sfxBank'
 import { StarField } from './components/StarField'
 import { advanceDay, choose, createGame, LOW_LEVEL, minResource } from './game/engine'
 import type { GameState } from './game/types'
@@ -31,8 +32,14 @@ export default function App() {
 
   // ---- sound effects for new events and outcomes ----
   useEffect(() => {
-    if (screen === 'game' && game.step === 'choosing') void audio.sfx(game.event.severity === 'emergency' ? 'alert' : 'day')
-  }, [screen, game.event.id, game.step, game.event.severity])
+    if (screen !== 'game' || game.step !== 'choosing') return
+    // timed to land just after the new scene starts to appear
+    const calm = game.event.severity === 'calm'
+    const stinger: SfxId = calm ? 'st-calm' : STINGER[game.event.category] ?? 'st-calm'
+    const t1 = window.setTimeout(() => void audio.sfx('notify'), 250)
+    const t2 = window.setTimeout(() => void audio.sfx(stinger), 800)
+    return () => { window.clearTimeout(t1); window.clearTimeout(t2) }
+  }, [screen, game.event.id, game.step, game.event.severity, game.event.category])
 
   useEffect(() => {
     if (screen === 'results') void audio.sfx(game.status === 'won' ? 'success' : 'failed')
@@ -44,8 +51,13 @@ export default function App() {
   const onChoose = (id: string) => {
     const next = choose(game, id)
     if (next === game) return
-    const net = Object.values(next.outcome?.deltas ?? {}).reduce((a, b) => a + (b ?? 0), 0)
-    void audio.sfx(net >= 0 ? 'good' : 'bad')
+    void audio.sfx('confirm')
+    window.setTimeout(() => void audio.sfx(ACTION[game.event.category] ?? 'act-door'), 220)
+    // the two biggest resource changes, one after the other
+    const deltas = Object.entries(next.outcome?.deltas ?? {}) as [string, number][]
+    deltas.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 2).forEach(([k, v], i) => {
+      window.setTimeout(() => void audio.sfx(`${k}${v > 0 ? '+' : '-'}` as SfxId), 1000 + i * 320)
+    })
     setGame(next)
   }
 

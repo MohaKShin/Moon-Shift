@@ -31,3 +31,47 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
+
+/* ---------- scene animation toolkit ---------- */
+@keyframes pf { 0% { transform: translate(0,0); opacity: 0 } 15% { opacity: var(--o,.7) } 85% { opacity: var(--o,.7) } 100% { transform: translate(var(--dx),var(--dy)); opacity: 0 } }
+.pf { animation: pf var(--d,6s) linear infinite; }
+@keyframes spin { to { transform: rotate(360deg) } }
+.spin-slow { animation: spin 90s linear infinite; }
+.spin-med { animation: spin 5s linear infinite; }
+.spin-fast { animation: spin .6s linear infinite; }
+.spin-jam { animation: jam 1.2s ease-in-out infinite; }
+@keyframes jam { 0%,100% { transform: rotate(0) } 30% { transform: rotate(14deg) } 34% { transform: rotate(10deg) } 70% { transform: rotate(-6deg) } }
+@keyframes flow { to { stroke-dashoffset: -32 } }
+.flow { animation: flow 1s linear infinite; }
+@keyframes wavePulse { 0%,100% { opacity: .15 } 50% { opacity: 1 } }
+.wave { animation: wavePulse 1.6s ease-in-out infinite; }
+@keyframes glint { 0% { transform: translateX(-20px); opacity: 0 } 10% { opacity: .55 } 40%,100% { transform: translateX(70px); opacity: 0 } }
+.glint { animation: glint 4.5s ease-in-out infinite; }
+@keyframes shake { 0%,100% { transform: translate(0,0) } 20% { transform: translate(-3px,2px) } 40% { transform: translate(3px,-2px) } 60% { transform: translate(-2px,-2px) } 80% { transform: translate(2px,2px) } }
+.shake { animation: shake .35s linear infinite; }
+@keyframes jump { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-46px) } }
+.jump { animation: jump 1.8s cubic-bezier(.3,0,.4,1) infinite; }
+@keyframes shiver { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-1.2px) } 75% { transform: translateX(1.2px) } }
+.shiver { animation: shiver .12s linear infinite; }
+@keyframes heat { 0% { transform: translateY(0) scaleX(1); opacity: 0 } 25% { opacity: .55 } 100% { transform: translateY(-46px) scaleX(1.25); opacity: 0 } }
+.heat { animation: heat 2.6s ease-out infinite; }
+@keyframes sweep { 0%,100% { transform: rotate(-14deg) } 50% { transform: rotate(10deg) } }
+.sweep { animation: sweep 1s ease-in-out infinite; transform-origin: 0 0; }
+@keyframes ping { 0% { transform: scale(.3); opacity: .9 } 100% { transform: scale(1.6); opacity: 0 } }
+.ping { animation: ping 1.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes breathe { 0%,100% { transform: scale(1) } 50% { transform: scale(1.06) } }
+.breathe { animation: breathe 6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes driftx { from { transform: translateX(-14px) } to { transform: translateX(14px) } }
+.drift-x { animation: driftx 18s ease-in-out infinite alternate; }
+@keyframes streak { 0%,70% { transform: translate(0,0); opacity: 0 } 74% { opacity: .9 } 100% { transform: translate(260px,150px); opacity: 0 } }
+.streak { animation: streak 5s ease-in infinite; }
+@keyframes scan { 0%,100% { transform: translateX(-70px) } 50% { transform: translateX(70px) } }
+.scan { animation: scan 2.4s ease-in-out infinite; }
+@keyframes shieldPulse { 0%,100% { stroke-opacity: .35 } 50% { stroke-opacity: 1 } }
+.shield-pulse { animation: shieldPulse 1.8s ease-in-out infinite; }
+@keyframes tv { 0%,100% { fill: #7fb6ff } 20% { fill: #ffb870 } 45% { fill: #b9ffd6 } 70% { fill: #e69bff } }
+.tv { animation: tv 3.4s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pf { opacity: 0 !important; animation: none !important; }
+  .shake, .jump, .streak, .scan, .sweep, .spin-med, .spin-fast, .spin-jam, .heat { animation: none !important; }
+}
