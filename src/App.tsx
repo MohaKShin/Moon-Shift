@@ -10,6 +10,7 @@ import { Briefing } from './screens/Briefing'
 import { Game } from './screens/Game'
 import { Landing } from './screens/Landing'
 import { Results } from './screens/Results'
+import { Analytics } from '@vercel/analytics/react'
 
 type Screen = 'landing' | 'briefing' | 'game' | 'results'
 
@@ -81,6 +82,7 @@ export default function App() {
           {screen === 'results' && <Results state={game} onRestart={restart} />}
         </motion.div>
       </AnimatePresence>
+      <Analytics />
     </>
   )
 }
