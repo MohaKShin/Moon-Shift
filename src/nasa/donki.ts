@@ -1,7 +1,3 @@
-/**
- * NASA DONKI (Space Weather Database Of Notifications, Knowledge, Information).
- * It reports real events on the Sun. It does NOT measure radiation on the Moon.
- */
 export interface SolarEvent {
   kind: 'flare' | 'cme'
   date: string // ISO
@@ -18,12 +14,8 @@ export interface SolarSummary {
   days: number
 }
 
-// Since 30 Sept 2026 NASA CCMC serves DONKI at this base (no API key needed).
-// The old https://api.nasa.gov/DONKI/* URLs no longer return data.
-// Source: https://ccmc.gsfc.nasa.gov/news/major-updates/
 const BASE = 'https://ccmc.gsfc.nasa.gov/DONKI-API/get'
 const DAYS = 60
-// CCMC rejects ranges longer than 30 days, so 60 days is fetched as two windows.
 const WINDOW = 30
 
 const DAY_MS = 86400000
