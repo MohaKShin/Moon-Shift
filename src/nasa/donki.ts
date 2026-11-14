@@ -18,22 +18,37 @@ export interface SolarSummary {
   days: number
 }
 
-const API_KEY = (import.meta.env.VITE_NASA_API_KEY as string | undefined)?.trim() || 'DEMO_KEY'
-const BASE = 'https://api.nasa.gov/DONKI'
+// Since 30 Sept 2026 NASA CCMC serves DONKI at this base (no API key needed).
+// The old https://api.nasa.gov/DONKI/* URLs no longer return data.
+// Source: https://ccmc.gsfc.nasa.gov/news/major-updates/
+const BASE = 'https://ccmc.gsfc.nasa.gov/DONKI-API/get'
 const DAYS = 60
+// CCMC rejects ranges longer than 30 days, so 60 days is fetched as two windows.
+const WINDOW = 30
 
-export const usingDemoKey = API_KEY === 'DEMO_KEY'
-
+const DAY_MS = 86400000
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
-async function getJson(kind: 'FLR' | 'CME', signal: AbortSignal): Promise<unknown[]> {
-  const end = new Date()
-  const start = new Date(end.getTime() - DAYS * 86400000)
-  const url = `${BASE}/${kind}?startDate=${ymd(start)}&endDate=${ymd(end)}&api_key=${encodeURIComponent(API_KEY)}`
+async function getWindow(kind: 'FLR' | 'CME', endOffsetDays: number, signal: AbortSignal): Promise<unknown[]> {
+  const end = new Date(Date.now() - endOffsetDays * DAY_MS)
+  const start = new Date(end.getTime() - (WINDOW - 1) * DAY_MS)
+  const url = `${BASE}/${kind}?startDate=${ymd(start)}&endDate=${ymd(end)}`
   const res = await fetch(url, { signal })
+  if (res.status === 429) throw new Error('NASA is busy right now (too many requests). Try again in a minute.')
   if (!res.ok) throw new Error(`NASA answered with status ${res.status}`)
-  const data: unknown = await res.json()
+  const text = (await res.text()).trim()
+  if (!text) return [] // no events in this window
+  let data: unknown
+  try { data = JSON.parse(text) } catch { throw new Error('NASA sent a reply we could not read.') }
   return Array.isArray(data) ? data : []
+}
+
+/** Both 30-day windows for one event type; one window failing does not hide the other. */
+async function getJson(kind: 'FLR' | 'CME', signal: AbortSignal) {
+  const parts = await Promise.allSettled([getWindow(kind, 0, signal), getWindow(kind, WINDOW, signal)])
+  const ok = parts.filter((p): p is PromiseFulfilledResult<unknown[]> => p.status === 'fulfilled')
+  if (ok.length === 0) throw (parts[0] as PromiseRejectedResult).reason
+  return { items: ok.flatMap((p) => p.value), windows: ok.length }
 }
 
 interface Flare { classType?: string; peakTime?: string; beginTime?: string; sourceLocation?: string; link?: string }
@@ -52,8 +67,9 @@ function flareRelevance(cls: string) {
 export async function fetchSolarSummary(signal: AbortSignal): Promise<SolarSummary> {
   const [fl, cm] = await Promise.allSettled([getJson('FLR', signal), getJson('CME', signal)])
   if (fl.status === 'rejected' && cm.status === 'rejected') throw fl.reason
-  const flares = (fl.status === 'fulfilled' ? fl.value : []) as Flare[]
-  const cmes = (cm.status === 'fulfilled' ? cm.value : []) as Cme[]
+  const flares = (fl.status === 'fulfilled' ? fl.value.items : []) as Flare[]
+  const cmes = (cm.status === 'fulfilled' ? cm.value.items : []) as Cme[]
+  const windows = Math.max(fl.status === 'fulfilled' ? fl.value.windows : 0, cm.status === 'fulfilled' ? cm.value.windows : 0)
 
   const events: SolarEvent[] = []
   for (const f of flares) {
@@ -83,5 +99,5 @@ export async function fetchSolarSummary(signal: AbortSignal): Promise<SolarSumma
   }
   if (events.length === 0) throw new Error('No solar events were reported in this period.')
   events.sort((a, b) => +new Date(b.date) - +new Date(a.date))
-  return { latest: events[0], flares: flares.length, cmes: cmes.length, days: DAYS }
+  return { latest: events[0], flares: flares.length, cmes: cmes.length, days: Math.min(DAYS, windows * WINDOW) }
 }

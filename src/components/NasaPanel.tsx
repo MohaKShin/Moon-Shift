@@ -1,6 +1,5 @@
 import { ExternalLink, RefreshCw, SatelliteDish, TriangleAlert } from 'lucide-react'
 import { Button } from './Button'
-import { usingDemoKey } from '../nasa/donki'
 import type { NasaState } from '../nasa/useNasa'
 
 export function NasaPanel({ state, onRetry }: { state: NasaState; onRetry: () => void }) {
@@ -53,7 +52,7 @@ export function NasaPanel({ state, onRetry }: { state: NasaState; onRetry: () =>
       )}
 
       <p className="mt-3 border-t border-white/10 pt-3 text-xs leading-relaxed text-white/60">
-        Real events come from NASA DONKI{usingDemoKey ? ' (demo key)' : ''}. DONKI watches the Sun, not the Moon&rsquo;s surface. All the numbers in the game are made up.
+        Real events come from NASA DONKI (NASA CCMC). DONKI watches the Sun, not the Moon&rsquo;s surface. All the numbers in the game are made up.
       </p>
     </aside>
   )
