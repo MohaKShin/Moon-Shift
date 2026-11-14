@@ -1,7 +1,7 @@
 # MOON SHIFT
 
 A 7-day lunar survival game for ages 7-12, made for the NASA Space Apps Challenge 2026.
-React + Vite + TypeScript + Tailwind + Framer Motion + Lucide. No backend, no saving.
+React + Vite + TypeScript + Tailwind + Framer Motion + Lucide.
 
 ## Run
     npm install
