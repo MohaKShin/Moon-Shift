@@ -1,7 +1,3 @@
-/**
- * Original procedural sound effects. Every sound is layered from filtered noise,
- * detuned oscillators and soft envelopes: tactile and low-key, no arcade bleeps.
- */
 export type SfxId =
   | 'click' | 'confirm' | 'notify' | 'success' | 'failed'
   | 'water+' | 'water-' | 'energy+' | 'energy-' | 'safety+' | 'safety-'
